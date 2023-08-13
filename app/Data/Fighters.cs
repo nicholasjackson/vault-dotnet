@@ -9,9 +9,13 @@ namespace VaultDotNet.Data
 {
     public class Fighters : DbContext
     {
-        public Fighters (DbContextOptions<Fighters> options)
-            : base(options)
+        private readonly ILogger<Fighters> _logger;
+
+        public Fighters (DbContextOptions<Fighters> options,
+          ILogger<Fighters> logger)
+          : base(options)
         {
+          _logger = logger;
         }
 
         public DbSet<VaultDotNet.Models.Fighter> Fighter { get; set; } = default!;

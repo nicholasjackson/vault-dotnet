@@ -15,6 +15,6 @@ resource "container" "postgres" {
   }
 
   network {
-    id = variable.vault_network
+    id = resource.network.local.id
   }
 }

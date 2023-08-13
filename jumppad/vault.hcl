@@ -36,7 +36,7 @@ resource "container" "vault" {
   }
 
   network {
-    id         = variable.vault_network
+    id         = resource.network.local.id
     ip_address = variable.vault_ip_address
   }
 

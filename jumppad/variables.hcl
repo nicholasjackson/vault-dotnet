@@ -1,7 +1,3 @@
-variable "vault_network" {
-  default = "resource.network.local"
-}
-
 variable "vault_version" {
   default = "1.14.1"
 }
