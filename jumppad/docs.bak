@@ -1,0 +1,31 @@
+resource "docs" "docs" {
+  network {
+    id = variable.vault_network
+  }
+
+  image {
+    name = "ghcr.io/jumppad-labs/docs:v0.1.0"
+  }
+
+  content = [
+    resource.book.vault_basics
+  ]
+}
+
+
+resource "book" "vault_basics" {
+  title = "Understanding Vaul"
+
+  chapters = [
+    resource.chapter.introduction,
+  ]
+}
+
+resource "chapter" "introduction" {
+  title = "Introduction"
+
+  page "what_is_vault" {
+    title   = "What is Vault?"
+    content = file("${dir()}/docs/introduction/what_is_vault.mdx")
+  }
+}
