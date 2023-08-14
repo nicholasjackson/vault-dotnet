@@ -22,9 +22,6 @@ builder.Services.AddDbContext<Fighters>();
 //
 //builder.Configuration.AddVaultConfiguration(config, logger);
 
-builder.Services.AddDbContext<Fighters>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("Fighters") ?? throw new InvalidOperationException("Connection string 'Fighters' not found.")));
-
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 
