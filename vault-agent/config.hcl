@@ -35,5 +35,5 @@ template {
   }
   EOF
 
-  destination = "./appsettings.json"
+  destination = "../app/appsettings.json"
 }

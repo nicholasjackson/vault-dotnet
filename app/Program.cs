@@ -3,8 +3,10 @@ using Microsoft.Extensions.DependencyInjection;
 using VaultDotNet.Data;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddDbContext<Fighters>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("Fighters") ?? throw new InvalidOperationException("Connection string 'Fighters' not found.")));
+///builder.Services.AddDbContext<Fighters>(options =>
+//    options.UseNpgsql(builder.Configuration.GetConnectionString("Fighters") ?? throw new InvalidOperationException("Connection string 'Fighters' not found.")));
+
+builder.Services.AddDbContext<Fighters>();
 
 
 // Add services to the container.
