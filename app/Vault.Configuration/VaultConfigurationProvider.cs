@@ -190,6 +190,10 @@ namespace Vault.Configuration
           secretID = streamReader.ReadToEnd();
         }
 
+        // we need to track the token for the Vault client as it can have a TTL
+        // if the token can be renewed it should be renewed, if the token expires
+        // we need to re-authenticate to Vault to get a new token 
+        // this is pure happy path code at the moment
         var response = client.Auth.AppRoleLogin(
           new AppRoleLoginRequest(roleID, secretID),
             config.Auth.MountPath);
