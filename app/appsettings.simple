@@ -1,0 +1,12 @@
+{
+  "Logging": {
+    "LogLevel": {
+      "Default": "Information",
+      "Microsoft.AspNetCore": "Warning"
+    }
+  },
+  "AllowedHosts": "*",
+  "ConnectionStrings": {
+    "Fighters": "server=localhost;username={username};password={password};database=Fighters-6558502e-64dd-43fe-99d8-b519b4408469"
+  }
+}

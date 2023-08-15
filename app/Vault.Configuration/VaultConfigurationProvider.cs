@@ -11,23 +11,65 @@ namespace Vault.Configuration
   using Vault.Client;
   using Vault.Model;
   using Newtonsoft.Json.Linq;
+  using Polly.Caching;
+  using Microsoft.Extensions.Caching.Memory;
+  using Microsoft.AspNetCore.Razor.Language;
+
+  public class VaultCacheItem {
+  /// <summary>
+  /// TTL is the time to live or the lease duration for the secret
+  /// this is represented in seconds.
+  /// A value for 0 indicates that this secret has no TTL.
+  /// </summary>
+  public int TTL {get; set;}
+
+  /// <summary>
+  /// CreatedAt is the time that the secret was created
+  /// </summary>
+  public DateTime CreatedAt {get;set;}
+
+  /// <summary>
+  /// LeaseID is the lease of the secret if it is renewable
+  /// </summary>
+  public string? LeaseID {get; set;}
+
+  /// <summary>
+  /// Data for the secret
+  /// </summary>
+  public JObject? Data {get; set;}
+  /// <summary>
+  /// ConfigKeys contains a list of config keys that reference this secret
+  /// the key is the config key name, and the value the secret data element
+  /// </summary>
+  public Dictionary<string,string>? ConfigKeys {get; set;}
+}
 
   public class VaultConfigurationProvider : ConfigurationProvider
   {
     private ILogger _logger;
     private VaultClient? _vaultClient;
 
+    private Dictionary<string, VaultCacheItem> _secretCache;
+
+    internal VaultConfigurationSource ConfigurationSource { get; private set; }
+
     public VaultConfigurationProvider(VaultConfigurationSource source)
     {
       ConfigurationSource = source ?? throw new ArgumentNullException(nameof(source));
       _logger = ConfigurationSource.Logger;
+      _secretCache = new Dictionary<string, VaultCacheItem>();
     }
 
-    internal VaultConfigurationSource ConfigurationSource { get; private set; }
+    /// <summary>
+    /// Cache holds the cached secrets
+    /// </summary>
+    public Dictionary<string,VaultCacheItem> Cache() {
+      return _secretCache;
+    }
 
     public override void Load()
     {
-      _logger.LogInformation("abcx");
+      _logger.LogInformation("Created VaultConfiguraionProvider");
 
       if (_vaultClient == null)
       {
@@ -37,25 +79,91 @@ namespace Vault.Configuration
         _logger.LogDebug("lease duration {duration}, renewable {renewable}", response.LeaseDuration, response.Renewable);
       }
 
-      LoadVaultData(_vaultClient, ConfigurationSource.Config.Secrets).Wait();
+      LoadVaultData(ConfigurationSource.Config.Secrets).Wait();
     }
 
-    private async Task LoadVaultData(VaultClient vaultClient, Dictionary<string, VaultSecret> secrets)
+    public async Task RenewSecret(string secretPath) {
+      var cacheItem = _secretCache[secretPath];
+
+      // remove the cache item so the secret is refetched
+      _secretCache.Remove(secretPath);
+
+      // fetch the updated secret
+      // we really should check to see if the secret can have it's lease renewed
+      // rather than recreating it, this is just for proof of concept
+      var secret = await FetchSecret(secretPath);
+
+      // update the data items
+      foreach(var item in cacheItem.ConfigKeys){
+          _logger.LogDebug("Update Config data {key}, {secret}",item.Key, item.Value);
+          Data[item.Key] = (string)secret.Data[item.Value]; 
+          // add the config key to the secrets references so we can track 
+          // renewals
+          secret.ConfigKeys.Add(item.Key,item.Value);
+      }
+    }
+
+    private async Task LoadVaultData(Dictionary<string, VaultSecret> secrets)
     {
       foreach (var secret in secrets)
       {
         try
         {
           // fetch the secret from Vault
-          var vaultSecret = await vaultClient.ReadAsync<Object>(secret.Value.Secret);
-          var data = vaultSecret.Data as JObject;
-          Data.Add(secret.Key, (string)data[secret.Key]);
+          var item = await FetchSecret(secret.Value.Secret);
+          // update the config data
+          Data.Add(secret.Key, (string)item.Data[secret.Value.Key]);
+          // add the config key to the secrets references so we can track 
+          // renewals
+          item.ConfigKeys.Add(secret.Key,secret.Value.Key);
         }
         catch (VaultApiException e)
         {
           _logger.LogError("unable to read secret {e}", e);
         }
       }
+    }
+
+    private async Task<VaultCacheItem?> FetchSecret(string secret)
+    {
+      // is it in the cache?
+      if (_secretCache.ContainsKey(secret))
+      {
+        return _secretCache[secret];
+      }
+
+      // not in the cache fetch from vault
+      var retryPolicy = Policy.Handle<RateLimitRejectedException>().WaitAndRetryAsync
+      (
+        retryCount: 3,
+        retryNumber => TimeSpan.FromMilliseconds(100)
+      );
+
+      return await retryPolicy.ExecuteAsync(async () =>
+      {
+        try
+        {
+          var vaultSecret = await _vaultClient.ReadAsync<Object>(secret);
+
+          var cacheItem = new VaultCacheItem();
+          cacheItem.LeaseID = vaultSecret.LeaseID;
+          cacheItem.TTL = vaultSecret.LeaseDuration;
+          cacheItem.CreatedAt = DateTime.Now;
+          cacheItem.Data =vaultSecret.Data as JObject;
+          cacheItem.ConfigKeys = new Dictionary<string, string>();
+
+          // cache the data
+          _secretCache[secret] = cacheItem;
+
+          return cacheItem;
+        }
+        catch (RateLimitRejectedException e)
+        {
+          _logger.LogDebug("rate limited getting secret {secret}", secret);
+          await Task.Delay(e.RetryAfter);
+          throw;
+        }
+      });
     }
 
     private VaultClient CreateVaultClient(VaultConfigSection config)
