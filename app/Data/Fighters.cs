@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.SqlServer.Server;
 using VaultDotNet.Models;
 
 namespace VaultDotNet.Data
@@ -19,9 +20,12 @@ namespace VaultDotNet.Data
       // substitute the username and password with the vault values
       var username = _config["db_username"];
       var password = _config["db_password"];
-      var connStr = $"server=localhost;username={username};password={password};database=Fighters-6558502e-64dd-43fe-99d8-b519b4408469";
+      var connStr = _config.GetConnectionString("Fighters");
 
-      _logger.Log(LogLevel.Information, "Configuring with con string {conn}", connStr);
+      connStr = connStr.Replace("{username}",username);
+      connStr = connStr.Replace("{password}",password);
+
+      _logger.LogDebug("Configuring with con string {conn}", connStr);
 
       // fetch the connection string and configure
       optionsBuilder.UseNpgsql(connStr);
@@ -35,7 +39,7 @@ namespace VaultDotNet.Data
       _logger = logger;
       _config = config;
 
-      _logger.Log(LogLevel.Information, "Fighters DBContext created");
+      _logger.LogDebug("Fighters DBContext created");
     }
 
     public DbSet<VaultDotNet.Models.Fighter> Fighter { get; set; } = default!;

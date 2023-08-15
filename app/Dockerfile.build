@@ -1,0 +1,12 @@
+FROM mcr.microsoft.com/dotnet/sdk:7.0 as build-env
+
+ARG runtime
+
+WORKDIR /src
+
+COPY ./*.csproj .
+RUN dotnet restore
+
+COPY . .
+
+RUN dotnet publish --runtime ${runtime} --no-self-contained

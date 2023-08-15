@@ -49,6 +49,11 @@ resource "container" "vault" {
     source      = variable.vault_plugin_folder
     destination = "/plugins"
   }
+  
+  volume {
+    source      = "../"
+    destination = "/output"
+  }
 
   volume {
     source      = variable.vault_additional_volume.source
@@ -58,8 +63,10 @@ resource "container" "vault" {
 }
 
 resource "remote_exec" "vault_bootstrap" {
+  depends_on = ["resource.container.postgres.id"]
+
   target            = resource.container.vault
-  script            = variable.vault_bootstrap_script
+  script            = file("./setup.sh")
   working_directory = "/data"
 }
 

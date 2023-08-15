@@ -17,4 +17,15 @@ resource "container" "postgres" {
   network {
     id = resource.network.local.id
   }
+
+  health_check {
+    timeout = "30s"
+
+    exec {
+      script = <<-EOF
+      #!/bin/bash
+      pg_isready
+      EOF
+    }
+  }
 }
